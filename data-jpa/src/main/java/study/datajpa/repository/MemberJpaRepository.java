@@ -55,4 +55,20 @@ public class MemberJpaRepository {
                 .getResultList();
     }
 
+    // 페이징 쿼리
+    public List<Member> findByPage(int age, int offset, int limit) {
+        return em.createQuery("select m from Member m where m.age = :age order by m.username desc", Member.class)
+                .setParameter("age", age)
+                .setFirstResult(offset)
+                .setMaxResults(limit)
+                .getResultList();
+    }
+
+    // Total Count 쿼리 -> Sorting이 필요하지 않아서 (성능 최적화) 정렬 제외
+    public long totalCount(int age) {
+        return em.createQuery("select count(m) from Member m where m.age = :age", Long.class)
+                .setParameter("age", age)
+                .getSingleResult();
+    }
+
 }

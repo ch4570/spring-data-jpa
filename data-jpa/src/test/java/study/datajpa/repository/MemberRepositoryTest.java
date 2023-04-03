@@ -10,7 +10,9 @@ import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 import study.datajpa.entity.Team;
 
+import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 
 @SpringBootTest
 @Transactional
@@ -142,6 +144,42 @@ class MemberRepositoryTest {
         for (MemberDto dto : result) {
             System.out.println("dto = " + dto);
         }
+
+    }
+
+    @Test
+    public void findByNames() {
+        Member member1 = new Member("AAA", 10);
+        Member member2 = new Member("BBB", 20);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        List<Member> result = memberRepository.findByNames(Arrays.asList("AAA", "BBB"));
+
+        for (Member member : result) {
+            System.out.println("member = " + member);
+        }
+
+    }
+
+    @Test
+    public void retrunType() {
+        Member member1 = new Member("AAA", 10);
+        Member member2 = new Member("AAA", 20);
+
+        memberRepository.save(member1);
+        memberRepository.save(member2);
+
+        List<Member> listMembers = memberRepository.findListByUsername("AAA");
+
+        // Spring Data JPA는 없는 데이터를 조회할경우, 예외가 터지지 않고 null을 반환한다.
+        // JPA 에서는 없는 데이터를 singleResult()로 조회하면 NoResultException이 발생한다.
+        Member normalMember = memberRepository.findMemberByUsername("AAA");
+
+        Optional<Member> optionalMember = memberRepository.findOptionalByUsername("AAA");
+
+        System.out.println("findMember = " + optionalMember.orElseThrow(() -> { throw new IllegalStateException("");}));
 
     }
 }
