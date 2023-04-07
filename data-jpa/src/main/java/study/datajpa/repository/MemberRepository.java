@@ -1,6 +1,10 @@
 package study.datajpa.repository;
 
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Slice;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import study.datajpa.dto.MemberDto;
@@ -45,4 +49,23 @@ public interface MemberRepository extends JpaRepository<Member, Long> {
     Member findMemberByUsername(String name); // 단건
 
     Optional<Member> findOptionalByUsername(String name); // 단건 Optional
+
+    // 반환타입을 Page로 하면 TotalCount 쿼리가 같이 나간다.
+    // 조회 쿼리와 카운트 쿼리를 분리할 수 있다.
+    @Query(value = "select m from Member m left join m.team t",
+            countQuery = "select count(m.username) from Member m")
+    Page<Member> findByAge(int age, Pageable pageable);
+
+    // 반환타입을 Slice로 하면 TotalCount 쿼리가 안나간다.
+    @Query("select m from Member m where m.age = :age")
+    Slice<Member> findByAge2(@Param("age") int age, Pageable pageable);
+
+    @Query("select m from Member m where m.age = :age")
+    List<Member> findByAge3(@Param("age") int age, Pageable pageable);
+
+    // @Modifying 애너테이션을 붙여줘야 EntityManager의 executeUpdate를 실행한다.
+    // clearAutomatically 옵션을 true로 설정하면, 영속성컨텍스트를 비우지 않아도 자동으로 비워진다.
+    @Modifying(clearAutomatically = true)
+    @Query("update Member m set m.age = m.age + 1 where m.age >= :age")
+    int bulkAgePlus(@Param("age") int age);
 }

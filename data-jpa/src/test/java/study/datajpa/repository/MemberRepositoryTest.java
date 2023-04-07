@@ -4,12 +4,18 @@ import org.assertj.core.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
 import study.datajpa.entity.Member;
 import study.datajpa.entity.Team;
 
+import javax.persistence.EntityManager;
+import javax.persistence.PersistenceContext;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -21,6 +27,7 @@ class MemberRepositoryTest {
 
     @Autowired MemberRepository memberRepository;
     @Autowired TeamRepository teamRepository;
+    @PersistenceContext EntityManager em;
 
     @Test
     public void testMember() {
@@ -181,5 +188,119 @@ class MemberRepositoryTest {
 
         System.out.println("findMember = " + optionalMember.orElseThrow(() -> { throw new IllegalStateException("");}));
 
+    }
+
+    @Test
+    public void paging() {
+        // given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        int age = 10;
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+
+        // when
+        // 반환타입을 Page로 하면 TotalCount 쿼리가 같이 나간다.
+        Page<Member> members = memberRepository.findByAge(10, pageRequest);
+
+        // Page의 내부 데이터를 map()을 이용해서 DTO로 변환할 수 있다.
+        Page<MemberDto> toMap = members.map(member -> new MemberDto(member.getId(), member.getUsername(), null));
+
+        // then
+        List<Member> content = members.getContent();
+        long totalElement = members.getTotalElements();
+
+        Assertions.assertThat(content.size()).isEqualTo(3);
+        Assertions.assertThat(totalElement).isEqualTo(5);
+
+        // 현재 페이지
+        Assertions.assertThat(members.getNumber()).isEqualTo(0);
+
+        // 총 페이지 수
+        Assertions.assertThat(members.getTotalPages()).isEqualTo(2);
+
+        // 첫 페이지인지 여부
+        Assertions.assertThat(members.isFirst()).isTrue();
+
+        // 다음 페이지가 있는지 여부
+        Assertions.assertThat(members.hasNext()).isTrue();
+    }
+
+    @Test
+    public void slice() {
+        // given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        int age = 10;
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+
+        // when
+        // 반환타입을 Slice<T>로 하면 내부적으로 limit + 1로 쿼리가 나간다(카운트 쿼리는 안나간다)
+        Slice<Member> members = memberRepository.findByAge2(10, pageRequest);
+
+        // then
+        List<Member> content = members.getContent();
+        Assertions.assertThat(content.size()).isEqualTo(3);
+
+        // 현재 페이지
+        Assertions.assertThat(members.getNumber()).isEqualTo(0);
+
+
+        // 첫 페이지인지 여부
+        Assertions.assertThat(members.isFirst()).isTrue();
+
+        // 다음 페이지가 있는지 여부
+        Assertions.assertThat(members.hasNext()).isTrue();
+    }
+
+    @Test
+    public void selectListLimit() {
+        // given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 10));
+        memberRepository.save(new Member("member3", 10));
+        memberRepository.save(new Member("member4", 10));
+        memberRepository.save(new Member("member5", 10));
+
+        int age = 10;
+        PageRequest pageRequest = PageRequest.of(0, 3, Sort.by(Sort.Direction.DESC, "username"));
+
+        // when
+        // 반환타입을 List<T>로 하면 TotalCount 쿼리가 안나간다.
+        // select from member where age = 10 limit 3 으로 쿼리가 나간다.
+        List<Member> members = memberRepository.findByAge3(10, pageRequest);
+
+    }
+
+    @Test
+    public void bulkUpdate() {
+
+        // given
+        memberRepository.save(new Member("member1", 10));
+        memberRepository.save(new Member("member2", 19));
+        memberRepository.save(new Member("member3", 20));
+        memberRepository.save(new Member("member4", 21));
+        memberRepository.save(new Member("member5", 40));
+
+        // when
+        // Bulk 연산은 영속성 컨텍스트를 거치지않고 데이터베이스에 직접 쿼리하기 때문에, 영속성 컨텍스트를 clear 해줘야한다.
+        // clear는 JpaRepository에 없으므로, EntityManager를 주입받아서 호출해야한다.
+        // Repository에서 @Modifying(clearAutomatically = true) 옵션을 주면 EntityManager를 주입받아서 호출하지 않아도 된다.
+        int result = memberRepository.bulkAgePlus(20);
+//        em.clear();
+
+        List<Member> findMember = memberRepository.findByUsername("member5");
+        Member member5 = findMember.get(0);
+        System.out.println("member5 = " + member5);
+
+        // then
+        Assertions.assertThat(result).isEqualTo(3);
     }
 }
