@@ -348,7 +348,7 @@ class MemberRepositoryTest {
         Member findMember = memberRepository.findReadOnlyByUsername(member1.getUsername());
         findMember.setUsername("member2");
 
-        em.flush();
+//        em.flush();
     }
 
     @Test
