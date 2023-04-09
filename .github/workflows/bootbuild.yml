@@ -24,10 +24,6 @@ jobs:
           java-version: 11 #현재 프로젝트는 자바 11버전을 사용하고 있다.
       
       - uses: actions/checkout@v2
-      - run: touch ./src/main/resources/application-security.properties
-      - run: echo "${{ secrets.APPLICATION_PROPERTIES }}" > ./src/main/resources/application-security.properties
-      #보안 properties파일 생성
-      #필요하지 않다면 지워도 됨
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
