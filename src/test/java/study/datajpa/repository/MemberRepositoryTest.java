@@ -5,8 +5,10 @@ import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.data.domain.*;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.Sort;
 import org.springframework.test.annotation.Rollback;
 import org.springframework.transaction.annotation.Transactional;
 import study.datajpa.dto.MemberDto;
@@ -367,60 +369,145 @@ class MemberRepositoryTest {
     }
 
     @Test
-    public void specBasic() {
+    public void interfaceProjections() {
         // given
-        Team teamA = new Team("teamA");
+        Team teamA = new Team("TeamA");
         em.persist(teamA);
 
-        Member member1 = new Member("m1", 0, teamA);
-        Member member2 = new Member("m2", 0, teamA);
-        em.persist(member1);
-        em.persist(member2);
+        Member m1 = new Member("member1", 0, teamA);
+        Member m2 = new Member("member2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
 
         em.flush();
         em.clear();
 
         // when
-        Specification<Member> spec = MemberSpec.username("m1").and(MemberSpec.teamName("teamA"));
-        List<Member> result = memberRepository.findAll(spec);
+        List<UsernameOnly> result = memberRepository.findProjectionsByUsername("member1");
 
-        // then
-        Assertions.assertThat(result.size()).isEqualTo(1);
+        for (UsernameOnly usernameOnly : result) {
+            System.out.println("usernameOnly = " + usernameOnly);
+            System.out.println("usernameOnly.getUsername() = " + usernameOnly.getUsername());
+        }
     }
 
     @Test
-    public void queryByExample() {
+    public void classProjections() {
         // given
-        Team teamA = new Team("teamA");
+        Team teamA = new Team("TeamA");
         em.persist(teamA);
 
-        Member member1 = new Member("m1", 0, teamA);
-        Member member2 = new Member("m2", 0, teamA);
-        em.persist(member1);
-        em.persist(member2);
+        Member m1 = new Member("member1", 0, teamA);
+        Member m2 = new Member("member2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
 
         em.flush();
         em.clear();
 
         // when
-        //Probe -> 필드에 데이터가 있는 실제 도메인 객체를 의미한다.
-        // QueryByExample의 한계는 inner join 까지만 해결이 가능하다.
-        Member member = new Member("m1");
-        Team team = new Team("teamA");
-        member.setTeam(team);
+        List<UsernameOnlyDto> result = memberRepository.findClassProjectionsByUsername("member1");
 
-        // 조건절에서 빼야하는 속성을 ignore 할 수 있다.
-        ExampleMatcher matcher = ExampleMatcher.matching()
-                .withIgnorePaths("age");
-
-        // Probe와 ExampleMatcher로 구성한다.
-        Example<Member> example = Example.of(member, matcher);
-
-        List<Member> result = memberRepository.findAll(example);
-
-        // then
-        Assertions.assertThat(result.get(0).getUsername()).isEqualTo("m1");
+        for (UsernameOnlyDto usernameOnlyDto : result) {
+            System.out.println("usernameOnlyDto = " + usernameOnlyDto);
+        }
 
     }
 
+    @Test
+    public void genericProjections() {
+        // given
+        Team teamA = new Team("TeamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("member1", 0, teamA);
+        Member m2 = new Member("member2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        // when
+        List<UsernameOnlyDto> result = memberRepository.findProjectionsByUsername("member1", UsernameOnlyDto.class);
+
+        for (UsernameOnlyDto usernameOnlyDto : result) {
+            System.out.println("usernameOnlyDto = " + usernameOnlyDto);
+        }
+
+    }
+
+    @Test
+    public void nestedProjections() {
+        // given
+        Team teamA = new Team("TeamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("member1", 0, teamA);
+        Member m2 = new Member("member2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        // when
+        List<NestedClosedProjections> result = memberRepository.findProjectionsByUsername("member1", NestedClosedProjections.class);
+
+        for (NestedClosedProjections nested : result) {
+            System.out.println("nested = " + nested);
+            System.out.println("nested.getUsername() = " + nested.getUsername());
+            System.out.println("nested.getTeam().getName() = " + nested.getTeam().getName());
+        }
+
+    }
+
+    @Test
+    public void nativeQuery() {
+        // given
+        Team teamA = new Team("TeamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("member1", 0, teamA);
+        Member m2 = new Member("member2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        // when
+        Member result = memberRepository.findByNativeQuery("member1");
+        System.out.println("result = " + result);
+    }
+
+    @Test
+    public void nativeProjectionQuery() {
+        // given
+        Team teamA = new Team("TeamA");
+        em.persist(teamA);
+
+        Member m1 = new Member("member1", 0, teamA);
+        Member m2 = new Member("member2", 0, teamA);
+
+        em.persist(m1);
+        em.persist(m2);
+
+        em.flush();
+        em.clear();
+
+        // when
+        Page<MemberProjection> result = memberRepository.findByNativeProjection(PageRequest.of(0, 10));
+        List<MemberProjection> content = result.getContent();
+
+        for (MemberProjection memberProjection : content) {
+            System.out.println("memberProjection.getUsername() = " + memberProjection.getUsername());
+            System.out.println("memberProjection.getTeamName() = " + memberProjection.getTeamName());
+        }
+    }
 }
